@@ -30,12 +30,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-latest, windows-latest]
         include:
           - platform: ubuntu-latest
             tools_url: https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          - platform: macos-latest
-            tools_url: https://dl.google.com/android/repository/commandlinetools-mac-9477386_latest.zip
           - platform: windows-latest
             tools_url: https://dl.google.com/android/repository/commandlinetools-win-9477386_latest.zip
 
@@ -73,12 +71,6 @@ jobs:
             ninja-build \
             openjdk-11-jre-headless
 
-      - name: Setup macOS environment
-        if: runner.os == 'macOS'
-        run: |
-          brew update || echo update failed
-          brew install ninja || echo update failed
-
       - name: install Go
         uses: actions/setup-go@v1
         with:
@@ -101,24 +93,6 @@ jobs:
         run: |
           cd "$BORINGSSL_HOME"
           git checkout --progress --force -B master
-
-      - name: Build BoringSSL x86 and ARM MacOS
-        if: runner.os == 'macOS'
-        env:
-          # For compatibility, but 10.15 target requires 16-byte stack alignment.
-          MACOSX_DEPLOYMENT_TARGET: 10.11
-        run: |
-          mkdir -p "$BORINGSSL_HOME/build.x86"
-          pushd "$BORINGSSL_HOME/build.x86"
-          cmake -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 -GNinja ..
-          ninja
-          popd
-
-          mkdir -p "$BORINGSSL_HOME/build.arm"
-          pushd "$BORINGSSL_HOME/build.arm"
-          cmake -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 -GNinja ..
-          ninja
-          popd
 
       - name: Build BoringSSL 64-bit Linux
         if: runner.os == 'Linux'
@@ -229,12 +203,6 @@ jobs:
           name: m2repo-Linux
           path: ${{ runner.temp }}/m2
 
-      - name: Download Maven repository for MacOS
-        uses: actions/download-artifact@v1
-        with:
-          name: m2repo-macOS
-          path: ${{ runner.temp }}/m2
-
       - name: Download Maven repository for Windows
         uses: actions/download-artifact@v1
         with:
@@ -244,12 +212,12 @@ jobs:
       - name: Build UberJAR with Gradle
         shell: bash
         run: |
-          ./gradlew :conscrypt-openjdk-uber:build -Dorg.conscrypt.openjdk.buildUberJar=true -Dmaven.repo.local="$M2_REPO"
+          ./gradlew :conscrypt-openjdk-uber:build -Dorg.conscrypt.openjdk.buildUberJar=true -Dorg.conscrypt.openjdk.uberJarClassifiers=linux-x86_64,windows-x86_64 -Dmaven.repo.local="$M2_REPO"
 
       - name: Publish UberJAR to Maven Local
         shell: bash
         run: |
-          ./gradlew :conscrypt-openjdk-uber:publishToMavenLocal -Dorg.conscrypt.openjdk.buildUberJar=true -Dmaven.repo.local="$M2_REPO"
+          ./gradlew :conscrypt-openjdk-uber:publishToMavenLocal -Dorg.conscrypt.openjdk.buildUberJar=true -Dorg.conscrypt.openjdk.uberJarClassifiers=linux-x86_64,windows-x86_64 -Dmaven.repo.local="$M2_REPO"
 
       - name: Upload Maven respository
         uses: actions/upload-artifact@v1
@@ -263,7 +231,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-latest, windows-latest]
         java: [8, 9, 11]
         include:
           - java: 8
