@@ -10,7 +10,7 @@ on:
 jobs:
   boringssl_clone:
     # This step ensures that all builders have the same version of BoringSSL
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Clone BoringSSL repo
@@ -30,9 +30,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, windows-latest]
+        platform: [ubuntu-20.04, windows-latest]
         include:
-          - platform: ubuntu-latest
+          - platform: ubuntu-20.04
             tools_url: https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           - platform: windows-latest
             tools_url: https://dl.google.com/android/repository/commandlinetools-win-9477386_latest.zip
@@ -170,7 +170,7 @@ jobs:
   uberjar:
     needs: build
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -231,7 +231,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, windows-latest]
+        platform: [ubuntu-20.04, windows-latest]
         java: [8, 9, 11]
         include:
           - java: 8
