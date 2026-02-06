@@ -116,6 +116,15 @@ jobs:
           ninja
           popd
 
+      - name: Upload BoringSSL Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: boringssl-build-${{ runner.os }}
+          path: ${{ runner.temp }}/boringssl
+          retention-days: 1
+          include-hidden-files: true
+          if-no-files-found: error
+
       - name: Build with Gradle
         shell: bash
         run: ./gradlew assemble -PcheckErrorQueue
