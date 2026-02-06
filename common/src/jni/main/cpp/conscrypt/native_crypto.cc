@@ -3805,6 +3805,57 @@ static jint evp_aead_ctx_op_buf(JNIEnv* env, jlong evpAeadRef, jbyteArray keyArr
                                inBuffer, outBuffer, out_limit-out_position, in_limit-in_position);
 }
 
+static jint evp_aead_ctx_op_direct_buffer_unsafe(JNIEnv* env, jlong evpAeadRef, jbyteArray keyArray, jint tagLen,
+                            jobject outBuffer, jint outLimit, jint outPosition, jbyteArray nonceArray,
+                            jobject inBuffer, jint inLimit, jint inPosition, jbyteArray aadArray,
+                            evp_aead_ctx_op_func realFunc) {
+
+    const EVP_AEAD* evpAead = reinterpret_cast<const EVP_AEAD*>(evpAeadRef);
+    JNI_TRACE("evp_aead_ctx_op(%p, %p, %d, %p, %p, %p, %p)", evpAead, keyArray, tagLen,
+              outBuffer, nonceArray, inBuffer, aadArray);
+
+    uint8_t* inBuf;
+    jint in_limit;
+    jint in_position;
+
+    inBuf = (uint8_t*)(env->GetDirectBufferAddress(inBuffer));
+     // limit is the index of the first element that should not be read or written
+    in_limit = inLimit;
+    // position is the index of the next element to be read or written
+    in_position = inPosition;
+
+    uint8_t* outBuf;
+    jint out_limit;
+    jint out_position;
+
+    outBuf = (uint8_t*)(env->GetDirectBufferAddress(outBuffer));
+    // limit is the index of the first element that should not be read or written
+    out_limit = outLimit;
+    // position is the index of the next element to be read or written
+    out_position = outPosition;
+
+    // Shifting over of ByteBuffer address to start at true position
+    inBuf += in_position;
+    outBuf += out_position;
+
+    size_t inSize = in_limit - in_position;
+    uint8_t* outBufEnd = outBuf + out_limit - out_position;
+    uint8_t* inBufEnd = inBuf + inSize;
+    std::unique_ptr<uint8_t[]> inCopy;
+    if (outBufEnd >= inBuf && inBufEnd >= outBuf) { // We have an overlap
+      inCopy.reset((new(std::nothrow) uint8_t[inSize]));
+      if (inCopy.get() == nullptr) {
+            conscrypt::jniutil::throwOutOfMemory(env, "Unable to allocate new buffer for overlap");
+            return 0;
+        }
+        memcpy(inCopy.get(), inBuf, inSize);
+        inBuf = inCopy.get();
+    }
+
+    return evp_aead_ctx_op_common(env, evpAeadRef, keyArray, tagLen, outBuf, nonceArray, inBuf, aadArray, realFunc,
+                               inBuffer, outBuffer, out_limit-out_position, in_limit-in_position);
+}
+
 static jint NativeCrypto_EVP_AEAD_CTX_seal(JNIEnv* env, jclass, jlong evpAeadRef,
                                            jbyteArray keyArray, jint tagLen, jbyteArray outArray,
                                            jint outOffset, jbyteArray nonceArray,
@@ -3839,6 +3890,24 @@ static jint NativeCrypto_EVP_AEAD_CTX_open_buf(JNIEnv* env, jclass, jlong evpAea
     CHECK_ERROR_QUEUE_ON_RETURN;
     return evp_aead_ctx_op_buf(env, evpAeadRef, keyArray, tagLen, outBuffer, nonceArray,
                            inBuffer, aadArray, EVP_AEAD_CTX_open);
+}
+
+static jint NativeCrypto_EVP_AEAD_CTX_seal_direct_buffer_unsafe(JNIEnv* env, jclass, jlong evpAeadRef,
+                                           jbyteArray keyArray, jint tagLen, jobject outBuffer,
+                                           jint outLimit, jint outPosition, jbyteArray nonceArray,
+                                           jobject inBuffer, jint inLimit, jint inPosition, jbyteArray aadArray) {
+    CHECK_ERROR_QUEUE_ON_RETURN;
+    return evp_aead_ctx_op_direct_buffer_unsafe(env, evpAeadRef, keyArray, tagLen, outBuffer, outLimit, outPosition,
+                           nonceArray, inBuffer, inLimit, inPosition, aadArray, EVP_AEAD_CTX_seal);
+}
+
+static jint NativeCrypto_EVP_AEAD_CTX_open_direct_buffer_unsafe(JNIEnv* env, jclass, jlong evpAeadRef,
+                                           jbyteArray keyArray, jint tagLen, jobject outBuffer,
+                                           jint outLimit, jint outPosition, jbyteArray nonceArray,
+                                           jobject inBuffer, jint inLimit, jint inPosition, jbyteArray aadArray) {
+    CHECK_ERROR_QUEUE_ON_RETURN;
+    return evp_aead_ctx_op_direct_buffer_unsafe(env, evpAeadRef, keyArray, tagLen, outBuffer, outLimit, outPosition,
+                           nonceArray, inBuffer, inLimit, inPosition, aadArray, EVP_AEAD_CTX_open);
 }
 
 static jbyteArray NativeCrypto_EVP_HPKE_CTX_export(JNIEnv* env, jclass, jobject hpkeCtxRef,
@@ -11132,6 +11201,10 @@ static JNINativeMethod sNativeCryptoMethods[] = {
                                 "(J[BILjava/nio/ByteBuffer;[BLjava/nio/ByteBuffer;[B)I"),
         CONSCRYPT_NATIVE_METHOD(EVP_AEAD_CTX_open_buf,
                                 "(J[BILjava/nio/ByteBuffer;[BLjava/nio/ByteBuffer;[B)I"),
+        CONSCRYPT_NATIVE_METHOD(EVP_AEAD_CTX_seal_direct_buffer_unsafe,
+                                "(J[BILjava/nio/ByteBuffer;II[BLjava/nio/ByteBuffer;II[B)I"),
+        CONSCRYPT_NATIVE_METHOD(EVP_AEAD_CTX_open_direct_buffer_unsafe,
+                                "(J[BILjava/nio/ByteBuffer;II[BLjava/nio/ByteBuffer;II[B)I"),
         CONSCRYPT_NATIVE_METHOD(EVP_HPKE_CTX_export, "(" REF_EVP_HPKE_CTX "[BI)[B"),
         CONSCRYPT_NATIVE_METHOD(EVP_HPKE_CTX_free, "(J)V"),
         CONSCRYPT_NATIVE_METHOD(EVP_HPKE_CTX_open, "(" REF_EVP_HPKE_CTX "[B[B)[B"),
