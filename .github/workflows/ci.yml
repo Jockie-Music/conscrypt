@@ -73,11 +73,6 @@ jobs:
             ninja-build \
             openjdk-11-jre-headless
 
-      - name: install Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.19.3'
-
       - name: Setup Windows environment
         if: runner.os == 'Windows'
         run: |
