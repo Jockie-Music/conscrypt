@@ -3814,6 +3814,16 @@ static jint evp_aead_ctx_op_direct_buffer_unsafe(JNIEnv* env, jlong evpAeadRef, 
     JNI_TRACE("evp_aead_ctx_op(%p, %p, %d, %p, %p, %p, %p)", evpAead, keyArray, tagLen,
               outBuffer, nonceArray, inBuffer, aadArray);
 
+    if (inBuffer == nullptr) {
+        conscrypt::jniutil::throwNullPointerException(env, "inBuffer == null");
+        return 0;
+    }
+
+    if (outBuffer == nullptr) {
+        conscrypt::jniutil::throwNullPointerException(env, "outBuffer == null");
+        return 0;
+    }
+
     uint8_t* inBuf;
     jint in_limit;
     jint in_position;
